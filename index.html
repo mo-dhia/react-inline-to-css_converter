@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Text Editor</title>
+</head>
+
+<body>
+
+    <div
+        style="width: calc(100vw - 15px); height: calc(50vh - 15px); background: rgba(0, 0, 0, 0.6); color: white; display: flex; align-items: center;">
+        <textarea id="component"
+            style="font-size: 20px; z-index: 1; position: relative; width: 100%; height: 100%; outline: none; border: none; background: rgba(0, 0, 0, 0.6); color: white;"></textarea>
+        <button onclick="findStyles(document.querySelector('#component').value)"
+            style="z-index: 5; position: absolute; border-radius: 50px; width: 25%; height: 7%; cursor: pointer; left:50% ; top :50vh; transform: translate(-50%, -50%);">
+            Convert</button>
+
+    </div>
+    <div
+        style="width: calc(100vw - 15px); height: calc(50vh - 15px); background: rgba(0, 0, 0, 0.6); color: white; margin-top: 10px;">
+        <textarea id="result"
+            style="font-size: 30px ;width: 100%; height: 100%; outline: none; border: none; background: rgba(0, 0, 0, 0.6); color: white;"></textarea>
+    </div>
+
+    <script>
+        function getFirstClassNamePriorToIndex(component, targetIndex) {
+            const codeBeforeIndex = component.substring(0, targetIndex);
+            const regex = /className="([^"]+)"/g;
+            let match;
+            let lastMatch;
+
+            while ((match = regex.exec(codeBeforeIndex)) !== null) {
+                lastMatch = match;
+            }
+
+            if (lastMatch) {
+                const firstClassName = lastMatch[1];
+                return firstClassName;
+            } else {
+                return null;
+            }
+        }
+
+        function convertJssToCss(jssObject) {
+            let cssString = '';
+
+            for (const key in jssObject) {
+                if (typeof jssObject[key] === 'object') {
+                    const nestedCss = convertJssToCss(jssObject[key]);
+                    cssString += `${key} {${nestedCss}} `;
+                } else {
+                    const kebabCaseKey = key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+                    cssString += `${kebabCaseKey}: ${jssObject[key]}; `;
+                }
+            }
+
+            return cssString;
+        }
+
+        const findStyles = (component) => {
+            const styles = []
+            const indexes = [];
+            const result = []
+            let newComponent = ''
+
+            let currentIndex = component.indexOf('style={{');
+            while (currentIndex !== -1) {
+                indexes.push(currentIndex);
+                currentIndex = component.indexOf('style={{', currentIndex + 1);
+            }
+
+            // return (component.slice(indexes[0] + 7, (component.slice(indexes[0] + 7).indexOf(' }}') + indexes[0] + 7) + 2))
+            for (let i = 0; indexes.length > i; i++) {
+                const string = component.slice(indexes[i] + 7, (component.slice(indexes[i] + 7).indexOf('}}') + indexes[i] + 7) + 1)
+                styles.push(eval(`(${string})`))
+                if (i === indexes.length - 1) {
+                    const prevString = component.slice(indexes[i - 1] + 7, (component.slice(indexes[i - 1] + 7).indexOf('}}') + indexes[i - 1] + 7) + 1)
+
+                    newComponent += component.slice(indexes[i - 1] + prevString.length + 8, indexes[i]) + component.slice((indexes[i] - 1) + string.length + 8)
+
+                } else {
+                    newComponent += component.slice(0, indexes[i] - 1)
+                }
+            }
+            // component.slice(0, indexes[0]),
+
+            styles.forEach((element, index) => {
+                result.push("." + getFirstClassNamePriorToIndex(component, indexes[index]) + ' { ' + convertJssToCss(element) + " }")
+                document.querySelector('#result').value += ("." + getFirstClassNamePriorToIndex(component, indexes[index]) + ' { ' + convertJssToCss(element) + " }" + "\n")
+            });
+            document.querySelector('#component').value = newComponent
+
+            console.log(result)
+        }
+
+
+    </script>
+
+</body>
+
+</html>
