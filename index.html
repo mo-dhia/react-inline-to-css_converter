@@ -25,7 +25,7 @@
     <script>
         function getFirstClassNamePriorToIndex(component, targetIndex) {
             const codeBeforeIndex = component.substring(0, targetIndex);
-            const regex = /className="([^"]+)"/g;
+            const regex = /className=['"]([^'"]+)['"]/g;
             let match;
             let lastMatch;
 
@@ -40,6 +40,11 @@
                 return null;
             }
         }
+        function removeInlineCSS(input) {
+            const pattern = /style={{[^}]+}}/g;
+            return input.replace(pattern, '');
+        }
+
 
         function convertJssToCss(jssObject) {
             let cssString = '';
@@ -60,8 +65,7 @@
         const findStyles = (component) => {
             const styles = []
             const indexes = [];
-            const result = []
-            let newComponent = ''
+            // const result = []
 
             let currentIndex = component.indexOf('style={{');
             while (currentIndex !== -1) {
@@ -69,31 +73,18 @@
                 currentIndex = component.indexOf('style={{', currentIndex + 1);
             }
 
-            // return (component.slice(indexes[0] + 7, (component.slice(indexes[0] + 7).indexOf(' }}') + indexes[0] + 7) + 2))
             for (let i = 0; indexes.length > i; i++) {
                 const string = component.slice(indexes[i] + 7, (component.slice(indexes[i] + 7).indexOf('}}') + indexes[i] + 7) + 1)
                 styles.push(eval(`(${string})`))
-                if (i === indexes.length - 1) {
-                    const prevString = component.slice(indexes[i - 1] + 7, (component.slice(indexes[i - 1] + 7).indexOf('}}') + indexes[i - 1] + 7) + 1)
-
-                    newComponent += component.slice(indexes[i - 1] + prevString.length + 8, indexes[i]) + component.slice((indexes[i] - 1) + string.length + 8)
-
-                } else {
-                    newComponent += component.slice(0, indexes[i] - 1)
-                }
             }
-            // component.slice(0, indexes[0]),
 
             styles.forEach((element, index) => {
-                result.push("." + getFirstClassNamePriorToIndex(component, indexes[index]) + ' { ' + convertJssToCss(element) + " }")
+                // result.push("." + getFirstClassNamePriorToIndex(component, indexes[index]) + ' { ' + convertJssToCss(element) + " }")
                 document.querySelector('#result').value += ("." + getFirstClassNamePriorToIndex(component, indexes[index]) + ' { ' + convertJssToCss(element) + " }" + "\n")
+
             });
-            document.querySelector('#component').value = newComponent
-
-            console.log(result)
+            document.querySelector('#component').value = removeInlineCSS(component)
         }
-
-
     </script>
 
 </body>
