@@ -23,68 +23,104 @@
     </div>
 
     <script>
-        function getFirstClassNamePriorToIndex(component, targetIndex) {
-            const codeBeforeIndex = component.substring(0, targetIndex);
-            const regex = /className=['"]([^'"]+)['"]/g;
-            let match;
-            let lastMatch;
-
-            while ((match = regex.exec(codeBeforeIndex)) !== null) {
-                lastMatch = match;
-            }
-
-            if (lastMatch) {
-                const firstClassName = lastMatch[1];
-                return firstClassName;
-            } else {
-                return null;
-            }
-        }
-        function removeInlineCSS(input) {
-            const pattern = /style={{[^}]+}}/g;
-            return input.replace(pattern, '');
-        }
+        let text = `div class="div" style="width: 100%; height: 100vh; background: green; "></div>`
+        let newText = ''
+        let css = ''
+        const styles = []
 
 
-        function convertJssToCss(jssObject) {
-            let cssString = '';
+        function converter(input, type, isReact) {
+            // Remove inline styles
+            const stylePattern = isReact ? /(\s*style={{[^}]+}})/g : /(style="[^"]*")|(style='[^']*')/g
 
-            for (const key in jssObject) {
-                if (typeof jssObject[key] === 'object') {
-                    const nestedCss = convertJssToCss(jssObject[key]);
-                    cssString += `${key} {${nestedCss}} `;
-                } else {
-                    const kebabCaseKey = key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-                    cssString += `${kebabCaseKey}: ${jssObject[key]}; `;
+            input = input.replace(stylePattern, (stylesString, i) => {
+                const complex = [];
+                let stylesArray = stylesString.split(isReact ? ',' : ';');
+                let stylesAcc = ''
+                for (let style of stylesArray) {
+                    // Split the style into property and value
+
+                    if (!isReact) {
+                        style = style.replace(/style=("[^"]*"|'[^']*')?/g, '').replace(/\n/g, '').replace(/ /g, '').replace(/"/g, '').replace(/'/g, '');
+                    }
+                    if (!style) continue
+
+                    const splitValue = style.split(':')
+                    let [property, value] = splitValue;
+
+                    if (isReact) {
+                        property = property.replace(/\s/g, '').replace(/\n/g, '').replace(/}/g, '').replace(/style={{/g, '')
+                    }
+                    // Skip if property or value is undefined
+                    if (!property || !value) continue;
+
+                    let clearedValue
+                    if (isReact) {
+                        clearedValue = splitValue.slice(1).join(':').replace(/\s/g, '').replace(/\n/g, '').replace(/}/g, '').replace(/style={{/g, '')
+
+                        if ((clearedValue[0] === '"' && clearedValue[clearedValue.length - 1] === '"') ||
+                            (clearedValue[0] === "'" && clearedValue[clearedValue.length - 1] === "'")) {
+                            let cssProperty = property.replace(/([A-Z])/g, "-$1").toLowerCase();
+                            stylesAcc += ` ${cssProperty}: ${clearedValue.slice(1, -1)};`;
+                        } else if (isNaN(Number(clearedValue))) {
+                            complex.push(`${property}: ${clearedValue}`);
+                        } else {
+                            let cssProperty = property.replace(/([A-Z])/g, "-$1").toLowerCase();
+                            stylesAcc += ` ${cssProperty}: ${clearedValue};`;
+                        }
+
+                    } else {
+                        if (value.includes('{') || value.includes('}') || value.includes('?') || value.includes('$')) {
+                            complex.push(property + ':' + splitValue.slice(1).join(':'))
+                        } else {
+                            stylesAcc += (' ' + property + ': ' + value + ';')
+                        }
+                    }
                 }
-            }
 
-            return cssString;
-        }
-
-        const findStyles = (component) => {
-            const styles = []
-            const indexes = [];
-            // const result = []
-
-            let currentIndex = component.indexOf('style={{');
-            while (currentIndex !== -1) {
-                indexes.push(currentIndex);
-                currentIndex = component.indexOf('style={{', currentIndex + 1);
-            }
-
-            for (let i = 0; indexes.length > i; i++) {
-                const string = component.slice(indexes[i] + 7, (component.slice(indexes[i] + 7).indexOf('}}') + indexes[i] + 7) + 1)
-                styles.push(eval(`(${string})`))
-            }
-
-            styles.forEach((element, index) => {
-                // result.push("." + getFirstClassNamePriorToIndex(component, indexes[index]) + ' { ' + convertJssToCss(element) + " }")
-                document.querySelector('#result').value += ("." + getFirstClassNamePriorToIndex(component, indexes[index]) + ' { ' + convertJssToCss(element) + " }" + "\n")
-
+                styles.push(stylesAcc)
+                if (complex.length) {
+                    if (isReact) {
+                        return ` style={{${complex.join(', ')}}}`;
+                    } else {
+                        return ` style='${complex.join('; ')}'`;
+                    }
+                } else {
+                    return '';
+                }
             });
-            document.querySelector('#component').value = removeInlineCSS(component)
+
+
+
+            // Remove class names and ids with invalid characters
+            const classIdPattern = isReact ? / (?:className|id)=['"]([^'"]+)['"]/g : / (?:class|id)=['"]([^'"]+)['"]/g
+            let index = 0
+            input = input.replace(classIdPattern, (match, attribute) => {
+                const className = match.includes('id=') ? '#' + attribute : '.' + attribute
+                css += className + ' {' + styles[index] + ' }' + '\n'
+                index++
+                if (!attribute.includes(' ') && !attribute.includes('>') && !attribute.includes(':')) {
+
+                    if (type === 'next' || type === 'react-native') {
+                        return ` className={styles.${attribute}}`
+                    } else {
+                        return match
+                    }
+
+                } else {
+                    return ''
+                }
+            });
+            return input;
         }
+        const type = 'svelte'
+        const isReact = false
+        const findStyles = () => {
+
+            newText = converter(text, type, isReact)
+
+            console.log(newText);
+        };
     </script>
 
 </body>
